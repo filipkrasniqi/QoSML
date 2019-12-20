@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="filip@10.79.1.125:22" showNewOnSourceInSync="false" showAutoUploadSettingsWarning="false">
+    <serverData>
+      <paths name="filip@10.79.1.125:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/QoSML" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="filip@10.79.1.125:22 (1)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="filip@10.79.1.125:22 (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/QoSML" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="filip@10.79.1.125:22 (5)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/QoSML" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_591" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22 (1)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_5" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22 (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_591" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22 (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_591" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22 (4)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_979" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="krasniqi@131.175.120.65:22 (5)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/krasniqi/QoSML" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>
