@@ -681,6 +681,7 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
 
         test_f = list(itertools.product(test_int_sim, test_environments))
         cur = 0
+        list_df_wdw, list_df_visualization, list_df_visualization_dropped = [], [], []
 
         for i, (intensity_simulation, environment) in enumerate(test_f):
             # get raw data for TM and delay
@@ -696,15 +697,15 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
                 # df_dropped = self.getDataframeDroppedFromSimulation(intensity_simulation, environment, window_size).drop(['intensity', 'simulation'], axis=1)
                 folder_dataset = "{}/{}/{}/{}/{}/{}/".format(self.dir_datasets, self.topology, self.identifier, intensity_simulation, environment, self.datasets_output)
                 filename_dropped = folder_dataset+self.prefix_filename+'dropped.txt'
-
                 # computing dataframe for timeseries
                 df_dropped = pd.read_csv(filename_dropped, sep=" ", header=None, names = self.dropped_cols,index_col=False).drop(list(range(self.num_values_drop))+[self.num_periods], axis=0)
                 intensities_dropped = np.append(intensities_dropped, np.repeat(intensity_simulation, df_dropped.shape[0]))
                 environments_dropped = np.append(environments_dropped, np.repeat(environment, df_dropped.shape[0]))
-                df_visualization_dropped = pd.concat([df_visualization_dropped, df_dropped], ignore_index=True)
-
+                # df_visualization_dropped = pd.concat([df_visualization_dropped, df_dropped], ignore_index=True)
+                list_df_visualization_dropped.append(df_dropped)
                 df_it = pd.concat([df_input, df_load, df_target], axis=1, sort=False,join='inner').reindex()
-                df_wdw_visualization = pd.concat([df_wdw_visualization, df_it], ignore_index=True)
+                list_df_wdw.append(df_it)
+                # df_wdw_visualization = pd.concat([df_wdw_visualization, df_it], ignore_index=True)
                 intensities = np.append(intensities, np.repeat(intensity_simulation, df_it.shape[0]))
                 environments = np.append(environments, np.repeat(environment, df_it.shape[0]))
 
@@ -722,11 +723,13 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
                 df_capacities = df_capacities_single.loc[np.repeat(df_capacities_single.index.values, current_df_tm.shape[0])].reset_index(drop=True)
 
                 df_t_d_c = pd.concat([current_df_tm, df_capacities, current_df_delay], axis=1, sort=False,join='inner').reindex()
-                df_visualization = pd.concat([df_visualization, df_t_d_c], ignore_index=True)
+                # df_visualization = pd.concat([df_visualization, df_t_d_c], ignore_index=True)
+                list_df_visualization.append(df_t_d_c)
+                print("INFO: {}/{} OK".format(cur+1, len(test_f)))
             else:
                 print("ERROR: no {} or {}".format(path_tm, path_delay))
             cur += 1
-        df_wdw_visualization = df_wdw_visualization.reset_index()
+        df_wdw_visualization, df_visualization, df_visualization_dropped = pd.concat(list_df_wdw, ignore_index=True).reset_index(), pd.concat(list_df_visualization, ignore_index=True), pd.concat(list_df_visualization_dropped, ignore_index=True)
         df_wdw_visualization["intensity_simulation"] = intensities
         df_wdw_visualization["environment"] = environments
         df_visualization["intensity_simulation"] = intensities_df_tm
