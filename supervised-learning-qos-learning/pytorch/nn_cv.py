@@ -75,7 +75,7 @@ threshold_log = 100
 shuffle_all_tensors_together = False
 real_case_split = False
 use_PCA = False
-num_threads = 8
+num_threads = 4
 torch.set_num_threads(num_threads)
 
 use_ns3 = only_low = use_routenet = use_understanding = False
@@ -124,6 +124,7 @@ else:
     dataset_container = TestDataset()
     dataset_origin = 'test_dataset'
 
+num_nodes = dataset_container.max_num_nodes
 print("INFO: Using {} dataset".format(dataset_origin))
 model_dir += "_{}".format(dataset_origin)
 print("INFO: model dir is {}".format(model_dir))
@@ -160,6 +161,10 @@ criterion = nn.MSELoss()
 patience = 2
 num_epochs = 4096
 
+filter_capacities = False
+if filter_capacities:
+    print("WARNING: forcing not to use capacities in input!")
+
 """
 Function returning test dataset. By default it returns it as a data loader
 """
@@ -183,6 +188,9 @@ Initialization of input size, output size
 """
 try:
     X_test, y_test, test_loader = get_test()
+    if scenario != Scenario.LEVEL_1 and filter_capacities:
+        X_test, y_test = X_test[:, : int(2 * (num_nodes ** 2 - num_nodes))], y_test[:, : int(
+            2 * (num_nodes ** 2 - num_nodes))]
     print("INFO: TEST ok")
     input_size = X_test.size(1)
     output_size = y_test.size(1)
@@ -195,10 +203,10 @@ except:
 Definition of all parameters and construction of search array of mappings.
 '''
 learning_rates = [0.001, 0.003, 0.005]
-lambda_regs = [0.0001, 0.001, 0.005]
+lambda_regs = [0.001, 0.005]
 dropout_rates = [0]
 batch_sizes = [512]
-nums_hidden_layers = [4, 8, 12]
+nums_hidden_layers = [4, 8, 12, 16, 20]
 act_funs = [torch.relu]
 window_sizes = [16] # useless. Kept because in other models can be useful (eg: LSTM)
 
@@ -239,6 +247,9 @@ def validate(net, loader, info = None):
                 print("WARNING: validation happened more than once!")
             net.eval()
             X, y = instance
+            if scenario != Scenario.LEVEL_1 and filter_capacities:
+                X, y = X[:, : int(2 * (num_nodes ** 2 - num_nodes))], y[:, : int(
+                    2 * (num_nodes ** 2 - num_nodes))]
             y_hat = net(X)
             if "est" in info:
                 y_hat *= 1/coefficient_delay
@@ -265,6 +276,8 @@ def train(net, train_loader):
         net.train()
         optimizer.zero_grad()
         X_train, y_train = train_instance
+        if scenario != Scenario.LEVEL_1 and filter_capacities:
+            X_train, y_train = X_train[:, : int(2 * (num_nodes ** 2 - num_nodes))], y_train[:, : int(2 * (num_nodes ** 2 - num_nodes))]
         start = time.time()
         y_hat = net(X_train)
         end = time.time()
@@ -414,10 +427,13 @@ for i, s in enumerate(search):
         best_model_cv = join(*[dir_model_output_search, "cv_{}".format(best_index_cv)])
 
         current_nn_cv_path = '{}/NN.model'.format(best_model_cv)
+        current_nn_cv_desc_path = '{}/search.txt'.format(best_model_cv)
 
         # save best model for the current CV
         model_path = '{}/best.model'.format(dir_model_output_search)
+        desc_path = '{}/search.txt'.format(dir_model_output_search)
         copyfile(current_nn_cv_path, model_path)
+        copyfile(current_nn_cv_desc_path, desc_path)
         print("\nSUCCESS: completed search {}/{} \n".format(i+1, len(search)))
 
 '''
@@ -446,6 +462,7 @@ print("INFO: parameters of the best are: {}".format(search[best_index]))
 # getting best model to show test results
 dir_model_output_search = join(*[dir_output, "search_{}".format(best_index)])
 model_path = '{}/best.model'.format(dir_model_output_search)
+best_search_path = '{}/search.txt'.format(dir_model_output_search)
 net = torch.load(model_path)['model']
 
 loss, mae_test, r2_test = validate(net, test_loader, info = "Test")
@@ -460,6 +477,9 @@ net.save_model(
     'model': net
     },
     model_path)
+
+desc_path = '{}/search.txt'.format(dir_output)
+copyfile(best_search_path, desc_path)
 
 # grid wit one value for search. It averages results for a single search param
 excel_path = '{}/avg_results.xlsx'.format(dir_output)
