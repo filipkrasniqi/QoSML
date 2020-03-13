@@ -64,7 +64,7 @@ test_less_intensities = bool(arguments[7] == "True")
 scenario = int(arguments[8])
 assert scenario >= 1 and scenario <= 3, "Wrong value describing the scenario"
 scenario = [Scenario.LEVEL_1, Scenario.LEVEL_2, Scenario.LEVEL_3][scenario-1]
-num_threads = 2
+num_threads = 1
 
 # where to save model and scores to file
 base_dir_proj = join(*[expanduser('~'), 'ns3', 'workspace', 'ns-allinone-3.29', 'ns-3.29'])
@@ -124,7 +124,10 @@ prefixes_cols_edges = dataset_container.get_edge_prefixes()
 
 # define which and select input features
 only_mean_std = True
-also_capacity = (scenario == Scenario.LEVEL_2 or scenario == Scenario.LEVEL_3)
+use_capacities = True
+if not use_capacities:
+    print("WARNING: forcing not to use capacities in input!")
+also_capacity = (scenario == Scenario.LEVEL_2 or scenario == Scenario.LEVEL_3) and use_capacities
 
 if use_ns3:
     if only_mean_std:
@@ -208,16 +211,16 @@ def report(results, n_top=3):
             print("")
 
 # specify parameters and distributions to sample from
-n_iter_search = 12
+n_iter_search = 1
 cv_k = 3
 if n_iter_search == 1:
     print("INFO: only one search!")
-    param_dist = {"max_depth": [32],
-                "max_features": [32],
-                "min_samples_split": [9],
+    param_dist = {"max_depth": [60],
+                "max_features": [153],
+                "min_samples_split": [6],
                 "bootstrap": [True],
                 "criterion": ["mse"],
-                "n_estimators": [30]}
+                "n_estimators": [63]}
 else:
     if len(input_columns) <= 100:
         max_features = stats.randint(32, 96)
