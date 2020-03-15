@@ -1,3 +1,9 @@
+'''
+End-to-end Delay Prediction Based on Traffic Matrix Sampling.
+Filip Krasniqi, Jocelyne Elias, Jeremie Leguay, Alessandro E. C. Redondi.
+IEEE INFOCOM WKSHPS - NI: The 3rd International Workshop on Network Intelligence. Toronto, July 2020.
+'''
+
 import pandas as pd
 from pandas import ExcelWriter
 import numpy as np
