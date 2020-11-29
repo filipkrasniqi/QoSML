@@ -12,7 +12,7 @@ torch.set_printoptions(precision=9)
 import itertools
 from dataset_container import DatasetContainer
 
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 from torch_geometric.data import InMemoryDataset
 from torch_geometric.data import Data
@@ -31,6 +31,16 @@ class Scenario(IntEnum):
     LEVEL_1 = 0
     LEVEL_2 = 1
     LEVEL_3 = 2
+
+'''
+Additional implementation of how to split train and test sets.
+'''
+class TestSplitType(Enum):
+    CLASSIC = "classic"                     # all intensities are considered in each scenario (way described in the paper)
+    LOW_HIGH = "low_high"                   # in addition to normal split of other parameters, intensities are 50/50. Indeed, test intensities are 0/5, train are 6/10
+    HIGH_LOW = "high_low"                   # negate the one above
+    ALTERNATE = "alternate"                 # as LOW_HIGH, but test intensities are 0-2-...-8, train are those negated
+    NEGATE_ALTERNATE = "not_alternate"      # invert ALTERNATE (not used)
 
 '''
 Extension of DatasetContainer for simulations obtained from ns3.
@@ -58,6 +68,7 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
                 extract_also_quantiles = False,
                 also_pyg = False,
                 also_std_delay = False,
+                test_split_type = TestSplitType.CLASSIC,
                 **kwargs):
         'Initialize ns3 dataset'
         self.identifier = identifier
@@ -72,6 +83,7 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
         self.extract_also_quantiles = extract_also_quantiles
         self.also_pyg = also_pyg
         self.also_std_delay = also_std_delay
+        self.test_split_type = test_split_type
 
         root = join(*[expanduser('~'), 'notebooks', 'datasets', 'ns3'])
         transform = None
@@ -224,6 +236,8 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
                 postfix = "_only_low"
             postfix += "_{}".format(self.scenario.name)
             self.cache_dir = '{}{}'.format(self.cache_dir, postfix)
+        # concatenating the test-split definition
+        self.cache_dir = "{}_{}".format(self.cache_dir, self.test_split_type.value)
         print("INFO: cache dir is {}".format(self.cache_dir))
         self.folder_cache = join(*[self.dir_datasets, self.topology, self.identifier, self.cache_dir])
         super().init_cachefiles()
@@ -481,31 +495,101 @@ class NS3Dataset(DatasetContainer, InMemoryDataset):
             self.test_distinct_intensities = [0, int(((len(self.distinct_intensities) - 1) / 2)), len(self.distinct_intensities) - 1] # low, medium and high intensities
             print("WARNING: test is not made of all the intensities, only of {}".format(self.test_distinct_intensities))
         else:
-            self.test_distinct_intensities = self.distinct_intensities # as a default case, I consider when testing all the intensities
-
+            split_ratio = 0.5 # self.train_ratio
+            low_high = [intensity for idx, intensity in enumerate(self.distinct_intensities) if idx < int(len(self.distinct_intensities) * split_ratio)]
+            high_low = list(set(self.distinct_intensities).difference(low_high))
+            alternate = [intensity for idx, intensity in enumerate(self.distinct_intensities) if idx % 2 == 0]
+            negate_alternate = set(self.distinct_intensities).difference(alternate)
+            if self.test_split_type == TestSplitType.CLASSIC:
+                self.test_distinct_intensities = self.distinct_intensities # as a default case, I consider when testing all the intensities
+            elif self.test_split_type == TestSplitType.HIGH_LOW:
+                self.test_distinct_intensities = high_low
+            elif self.test_split_type == TestSplitType.LOW_HIGH:
+                self.test_distinct_intensities = low_high
+            elif self.test_split_type == TestSplitType.ALTERNATE:
+                self.test_distinct_intensities = alternate
+            else:
+                self.test_distinct_intensities = negate_alternate
         if self.scenario == Scenario.LEVEL_1:
-            self.train_simulations = self.distinct_simulations[0:int(self.train_ratio * len(self.distinct_simulations))]
+            '''
+            # Old way: keeping 80/20
+            size_train_simulations = int(self.train_ratio * len(self.distinct_simulations))
+            size_test_simulations = len(self.distinct_simulations) - size_train_simulations
+            if self.test_split_type != TestSplitType.CLASSIC: # intensities are the half
+                size_test_simulations *= 2                    # from 40 to 80
+                size_train_simulations = len(self.distinct_simulations) - size_test_simulations
+
+            self.train_simulations = self.distinct_simulations[0:size_train_simulations]
             self.test_simulations = self.distinct_simulations[len(self.train_simulations):]
+
+            self.train_capacities = self.test_capacities = [self.distinct_capacities[0]]
+            self.train_pdelays = self.test_pdelays = [self.distinct_pdelays[0]]
+            '''
+            if self.test_split_type != TestSplitType.CLASSIC: # intensities are the half
+                self.train_simulations = self.test_simulations = self.distinct_simulations
+            else:
+                size_train_simulations = int(self.train_ratio * len(self.distinct_simulations))
+                self.train_simulations = self.distinct_simulations[0:size_train_simulations]
+                self.test_simulations = self.distinct_simulations[len(self.train_simulations):]
 
             self.train_capacities = self.test_capacities = [self.distinct_capacities[0]]
             self.train_pdelays = self.test_pdelays = [self.distinct_pdelays[0]]
 
         elif self.scenario == Scenario.LEVEL_2:
+            # Old way: keeping 80/20
+            '''
             self.train_simulations = self.test_simulations = self.distinct_simulations
 
-            self.train_capacities = self.distinct_capacities[0:int(self.train_ratio * len(self.distinct_capacities))]
+            size_train_capacities = int(self.train_ratio * len(self.distinct_capacities))
+            size_test_capacities = len(self.distinct_capacities) - size_train_capacities
+            if self.test_split_type != TestSplitType.CLASSIC:  # intensities are the half
+                size_test_capacities *= 2  # from 10 to 20
+                size_train_capacities = len(self.distinct_capacities) - size_test_capacities
+
+            self.train_capacities = self.distinct_capacities[0:size_train_capacities]
             self.test_capacities = self.distinct_capacities[len(self.train_capacities):]
             self.train_pdelays = self.test_pdelays = [self.distinct_pdelays[0]]
+            '''
+            self.train_simulations = self.test_simulations = self.distinct_simulations
+            if self.test_split_type != TestSplitType.CLASSIC: # intensities are the half
+                self.train_capacities = self.test_capacities = self.distinct_capacities
+            else:
+                size_train_capacities = int(self.train_ratio * len(self.distinct_capacities))
+                self.train_capacities = self.distinct_capacities[0:size_train_capacities]
+                self.test_capacities = self.distinct_capacities[len(self.train_capacities):]
 
+            self.train_pdelays = self.test_pdelays = [self.distinct_pdelays[0]]
         elif self.scenario == Scenario.LEVEL_3:
+            # Old way: keep 80/20
+            '''
             self.train_simulations = self.test_simulations = self.distinct_simulations
             # here ratios can't be defined as the same. I take capacity = 50%, PDs = 40% -> 0.5 * 0.4 = 20% = test size
+            # in case of non classic split, 0.8 * 0.5 * 0.5 -> 20% = test size
+            capacity_train_ratio, pd_train_ratio = 0.5, 0.6
+            if self.test_split_type != TestSplitType.CLASSIC:
+                capacity_train_ratio, pd_train_ratio = 0.2, 0.5
 
-            self.train_capacities = self.distinct_capacities[0:int(0.5 * len(self.distinct_capacities))]
+            self.train_capacities = self.distinct_capacities[0:int(capacity_train_ratio * len(self.distinct_capacities))]
             self.test_capacities = self.distinct_capacities[len(self.train_capacities):]
 
-            self.train_pdelays = self.distinct_pdelays[0:int(0.6 * len(self.distinct_pdelays))]
+            self.train_pdelays = self.distinct_pdelays[0:int(pd_train_ratio * len(self.distinct_pdelays))]
             self.test_pdelays = self.distinct_pdelays[len(self.train_pdelays):]
+            '''
+            self.train_simulations = self.test_simulations = self.distinct_simulations
+            if self.test_split_type != TestSplitType.CLASSIC:
+                self.train_capacities = self.test_capacities = self.distinct_capacities
+                self.train_pdelays = self.test_pdelays = self.distinct_pdelays
+            else:
+                # here ratios can't be defined as the same. I take capacity = 50%, PDs = 40% -> 0.5 * 0.4 = 20% = test size
+                # in case of non classic split, 0.8 * 0.5 * 0.5 -> 20% = test size
+                capacity_train_ratio, pd_train_ratio = 0.5, 0.6
+
+                self.train_capacities = self.distinct_capacities[0:int(capacity_train_ratio * len(self.distinct_capacities))]
+                self.test_capacities = self.distinct_capacities[len(self.train_capacities):]
+
+                self.train_pdelays = self.distinct_pdelays[0:int(pd_train_ratio * len(self.distinct_pdelays))]
+                self.test_pdelays = self.distinct_pdelays[len(self.train_pdelays):]
+
 
     '''
     Override.

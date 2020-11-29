@@ -32,7 +32,7 @@ from joblib import dump
 Example: python rf.py cache_v1 ns3 rf_test abilene v1 all True
 '''
 
-assert len(sys.argv) == 9, "Errore" # se >= 3 va bene, altrimenti stampa Errore
+assert len(sys.argv) == 10, "Errore" # se >= 3 va bene, altrimenti stampa Errore
 
 arguments = sys.argv
 
@@ -69,6 +69,7 @@ identifier = "simulation_{}".format(str(arguments[5]))
 test_less_intensities = bool(arguments[7] == "True")
 scenario = int(arguments[8])
 assert scenario >= 1 and scenario <= 3, "Wrong value describing the scenario"
+scenario = [Scenario.LEVEL_1, Scenario.LEVEL_2, Scenario.LEVEL_3][scenario-1]
 scenario = [Scenario.LEVEL_1, Scenario.LEVEL_2, Scenario.LEVEL_3][scenario-1]
 num_threads = 1
 

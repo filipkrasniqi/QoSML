@@ -19,7 +19,7 @@ sys.path.insert(0, '../libs/')
 import torch
 import torch.nn as nn
 
-from ns3_dataset import NS3Dataset, Scenario
+from ns3_dataset import NS3Dataset, Scenario, TestSplitType
 from routenet_dataset import RoutenetDataset
 from understanding_dataset import UnderstandingDataset
 
@@ -29,7 +29,7 @@ import itertools
 import time
 from shutil import copyfile
 
-assert len(sys.argv) == 9, "Errore"
+assert len(sys.argv) == 10, "Errore"
 
 arguments = sys.argv
 
@@ -74,7 +74,13 @@ identifier = "simulation_{}".format(str(arguments[5]))
 test_less_intensities = bool(arguments[7] == "True")
 scenario = int(arguments[8])
 assert scenario >= 1 and scenario <= 3, "Wrong value describing the scenario"
-scenario = [Scenario.LEVEL_1, Scenario.LEVEL_2, Scenario.LEVEL_3][scenario-1]
+scenario = Scenario(scenario-1)
+test_split_type = str(arguments[9])
+try:
+    test_split_type = TestSplitType(test_split_type)
+except:
+    print("ERROR", test_split_type)
+    test_split_type = TestSplitType.CLASSIC
 
 log_epoch = False
 threshold_log = 100
@@ -118,7 +124,7 @@ if use_ns3:
     if "ms" in cache_dir:
         coefficient_delay = 1000
         print("INFO: Computing delay in ms...")
-    test_dataset = dataset_container = NS3Dataset(also_pyg = False, scenario = scenario, generate_tensors = True, test_less_intensities = test_less_intensities, only_low = only_low, cache_dir = cache_dir, topology = topology, identifier = identifier, use_PCA = use_PCA)
+    test_dataset = dataset_container = NS3Dataset(test_split_type = test_split_type, also_pyg = False, scenario = scenario, generate_tensors = True, test_less_intensities = test_less_intensities, only_low = only_low, cache_dir = cache_dir, topology = topology, identifier = identifier, use_PCA = use_PCA)
     dataset_origin = 'ns3'
 elif use_routenet:
     dataset_container = RoutenetDataset()
@@ -132,7 +138,7 @@ else:
 
 num_nodes = dataset_container.max_num_nodes
 print("INFO: Using {} dataset".format(dataset_origin))
-model_dir += "_{}".format(dataset_origin)
+model_dir += "_{}_L{}_{}".format(dataset_origin, (scenario.value+1),  test_split_type.value)
 print("INFO: model dir is {}".format(model_dir))
 
 # save model and scores to file
@@ -152,7 +158,7 @@ if(not os.path.isdir(dir_output)):
 
 print("INFO: Data: completed")
 
-cv_k = 3
+cv_k = 5
 if real_case_split:
     print("INFO: split done by splitting a priori the capacities and intensities ALSO during cross validation")
     dataset_container.init_cv_v2(cv_k)
@@ -206,13 +212,30 @@ except:
     print("ERROR: during taking single sets")
 
 '''
+Definition of best hyps in case of no hyp search
+'''
+learning_rate_scenario = [0.003, 0.005, 0.005]
+lambda_reg_scenario = [0.003, 0.005, 0.005]
+num_hidden_layers_scenario = [12, 12, 20]
+
+'''
+Set to false if you want to use so-far best hyps
+'''
+hyp_search = False
+
+'''
 Definition of all parameters and construction of search array of mappings.
 '''
-learning_rates = [0.001, 0.003, 0.005]
-lambda_regs = [0.001, 0.005]
+if hyp_search:
+    learning_rates = [0.001, 0.003, 0.005]
+    lambda_regs = [0.001, 0.005]
+    nums_hidden_layers = [4, 8, 12, 16, 20]
+else:
+    learning_rates = [learning_rate_scenario[scenario]]
+    lambda_regs = [lambda_reg_scenario[scenario]]
+    nums_hidden_layers = [num_hidden_layers_scenario[scenario]]
 dropout_rates = [0]
 batch_sizes = [512]
-nums_hidden_layers = [4, 8, 12, 16, 20]
 act_funs = [torch.relu]
 window_sizes = [16] # useless. Kept because in other models can be useful (eg: LSTM)
 
